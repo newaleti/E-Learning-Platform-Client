@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { ConflictException, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { User } from './schemas/user.schema';
@@ -23,7 +23,18 @@ export class UsersService {
       password: hashedPassword,
     });
 
-    return newUser.save();
+    try {
+      return await newUser.save();
+    } catch (error: unknown) {
+      const mongoError = error as {
+        code?: number;
+        keyPattern?: Record<string, number>;
+      };
+      if (mongoError.code === 11000 && mongoError.keyPattern?.email) {
+        throw new ConflictException('User with this email already exists');
+      }
+      throw error;
+    }
   }
 
   async findOneByEmail(email: string): Promise<User | null> {
